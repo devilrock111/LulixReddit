@@ -16,10 +16,31 @@ jobs:
           java-version: '17'
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
+        with:
+          packages: "platform-tools platforms;android-37 build-tools;37.0.0"
+      - name: Restore fixed debug keystore
+        env:
+          DEBUG_KEYSTORE_BASE64: ${{ secrets.DEBUG_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$DEBUG_KEYSTORE_BASE64" ]; then
+            mkdir -p ~/.android
+            echo "$DEBUG_KEYSTORE_BASE64" | base64 -d > ~/.android/debug.keystore
+            echo "Fixed debug keystore restored"
+          else
+            echo "No DEBUG_KEYSTORE_BASE64 secret set; Gradle will generate a new debug keystore (signature will change next build)"
+          fi
       - name: Build debug APK
         run: ./gradlew :app:assembleDebug --stacktrace
+      - name: List APK outputs
+        if: always()
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          ls -R app/build/outputs/apk || echo "no app/build/outputs/apk dir"
+          find app/build -name "*.apk" -print || true
       - name: Upload APK
+        if: always()
         uses: actions/upload-artifact@v6
         with:
           name: app-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
