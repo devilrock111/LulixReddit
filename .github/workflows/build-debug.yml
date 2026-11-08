@@ -17,7 +17,17 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
         with:
-          packages: "platform-tools platforms;android-37 build-tools;37.0.0"
+          # API 37 ships as platforms;android-37.0 (with .0), NOT platforms;android-37;
+          # sdkmanager fails with "Failed to find package 'platforms;android-37'" otherwise.
+          packages: "platform-tools platforms;android-37.0 build-tools;37.0.0"
+      - name: Link android-37 platform dir if needed
+        run: |
+          ls "$ANDROID_HOME/platforms/" || echo "no platforms dir"
+          if [ -d "$ANDROID_HOME/platforms/android-37.0" ] && [ ! -e "$ANDROID_HOME/platforms/android-37" ]; then
+            ln -s android-37.0 "$ANDROID_HOME/platforms/android-37"
+            echo "linked android-37 -> android-37.0"
+          fi
+          ls "$ANDROID_HOME/platforms/"
       - name: Restore fixed debug keystore
         env:
           DEBUG_KEYSTORE_BASE64: ${{ secrets.DEBUG_KEYSTORE_BASE64 }}
