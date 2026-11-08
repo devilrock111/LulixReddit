@@ -29,18 +29,34 @@ jobs:
           else
             echo "No DEBUG_KEYSTORE_BASE64 secret set; Gradle will generate a new debug keystore (signature will change next build)"
           fi
+      - name: Check workspace before build
+        run: |
+          pwd
+          ls -la
+          echo "--- app/ ---"
+          ls -la app/ || echo "NO app/ dir!"
+          echo "--- gradlew ---"
+          ls -l gradlew
       - name: Build debug APK
-        run: ./gradlew :app:assembleDebug --stacktrace
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:assembleDebug --stacktrace
+          echo "gradle exit code: $?"
+          ls -la app/build/ || echo "NO app/build dir after gradle!"
       - name: List APK outputs
         if: always()
         run: |
+          echo "PWD=$(pwd)"
           echo "ANDROID_HOME=$ANDROID_HOME"
-          ls -R app/build/outputs/apk || echo "no app/build/outputs/apk dir"
-          find app/build -name "*.apk" -print || true
+          ls -R app/build/outputs || echo "no app/build/outputs dir"
+          echo "--- find all apk ---"
+          find . -name "*.apk" -print || true
+          echo "--- find all aab ---"
+          find . -name "*.aab" -print || true
       - name: Upload APK
         if: always()
         uses: actions/upload-artifact@v6
         with:
           name: app-debug
-          path: app/build/outputs/apk/debug/*.apk
+          path: app/build/outputs/apk/
           if-no-files-found: error
