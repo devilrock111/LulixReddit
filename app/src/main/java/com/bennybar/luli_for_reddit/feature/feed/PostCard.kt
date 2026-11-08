@@ -659,7 +659,7 @@ private fun Thumb(p: Post, a: PostActions, s: Settings, size: Dp) {
             // other layouts (a link opens the link); the rest of the card opens the
             // post (#104). Blurred (NSFW/spoiler) ones keep opening the post, so a
             // tap never shows them uncovered.
-            .then(if (blur) Modifier else Modifier.clickable(onClickLabel = "Open media", onClick = a::openMedia)),
+            .then(if (blur && !s.miniThumbDirectFullscreen) Modifier else Modifier.clickable(onClickLabel = "Open media", onClick = a::openMedia)),
         contentAlignment = Alignment.Center,
     ) {
         if (url != null && !blur) {
