@@ -1,0 +1,82 @@
+name: Build release APK
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, mini-nsfw-fullscreen]
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          # API 37 ships as platforms;android-37.0 (with .0), NOT platforms;android-37;
+          # sdkmanager fails with "Failed to find package 'platforms;android-37'" otherwise.
+          packages: "platform-tools platforms;android-37.0 build-tools;37.0.0"
+      - name: Link android-37 platform dir if needed
+        run: |
+          ls "$ANDROID_HOME/platforms/" || echo "no platforms dir"
+          if [ -d "$ANDROID_HOME/platforms/android-37.0" ] && [ ! -e "$ANDROID_HOME/platforms/android-37" ]; then
+            ln -s android-37.0 "$ANDROID_HOME/platforms/android-37"
+            echo "linked android-37 -> android-37.0"
+          fi
+          ls "$ANDROID_HOME/platforms/"
+      - name: Restore fixed release keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::error::No RELEASE_KEYSTORE_BASE64 secret set; a release build cannot fall back to debug signing"
+            exit 1
+          fi
+          keystore="$RUNNER_TEMP/release.jks"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$keystore"
+          {
+            echo "storeFile=$keystore"
+            echo "storePassword=$KEYSTORE_PASSWORD"
+            echo "keyAlias=$KEY_ALIAS"
+            echo "keyPassword=$KEY_PASSWORD"
+          } > key.properties
+          echo "Fixed release keystore restored"
+      - name: Check workspace before build
+        run: |
+          pwd
+          ls -la
+          echo "--- app/ ---"
+          ls -la app/ || echo "NO app/ dir!"
+          echo "--- gradlew ---"
+          ls -l gradlew
+      - name: Build release APK
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:assembleRelease --stacktrace
+          echo "gradle exit code: $?"
+          ls -la app/build/ || echo "NO app/build dir after gradle!"
+      - name: List APK outputs
+        if: always()
+        run: |
+          echo "PWD=$(pwd)"
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          ls -R app/build/outputs || echo "no app/build/outputs dir"
+          echo "--- find all apk ---"
+          find . -name "*.apk" -print || true
+          echo "--- find all aab ---"
+          find . -name "*.aab" -print || true
+      - name: Upload APK
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: app-release
+          path: app/build/outputs/apk/release/
+          if-no-files-found: error
