@@ -31,6 +31,7 @@ class SettingsStore(private val p: Prefs) {
             tapToCollapse = b("tapToCollapse", d.tapToCollapse),
             collapseRepliesOnly = b("collapseRepliesOnly", d.collapseRepliesOnly),
             voteEdge = b("voteEdge", d.voteEdge),
+            commentAvatars = b("commentAvatars", d.commentAvatars),
             autoTranslate = b("autoTranslate", d.autoTranslate),
             translateSecondLanguage = p.getString("translateSecondLanguage") ?: d.translateSecondLanguage,
             translateService = p.getString("translateService") ?: d.translateService,
@@ -100,6 +101,10 @@ class SettingsStore(private val p: Prefs) {
             // expandable index (2); clamping maps both safely.
             homeFab = idx(HomeFab.entries.toTypedArray(), "homeFab", d.homeFab),
             threadFab = idx(ThreadFab.entries.toTypedArray(), "threadFab", d.threadFab),
+            threadFabPosition = idx(ThreadFabPosition.entries.toTypedArray(), "threadFabPosition", d.threadFabPosition),
+            threadJumpOp = b("threadJumpOp", d.threadJumpOp),
+            threadJumpMine = b("threadJumpMine", d.threadJumpMine),
+            threadJumpNext = b("threadJumpNext", d.threadJumpNext),
             topBarMode = p.getInt("topBarMode")?.let {
                 TopBarMode.entries[it.coerceIn(0, TopBarMode.entries.size - 1)]
             } ?: d.topBarMode,
@@ -224,6 +229,7 @@ class SettingsStore(private val p: Prefs) {
     fun setTapToCollapse(v: Boolean) { p.setBool("tapToCollapse", v); set { it.copy(tapToCollapse = v) } }
     fun setCollapseRepliesOnly(v: Boolean) { p.setBool("collapseRepliesOnly", v); set { it.copy(collapseRepliesOnly = v) } }
     fun setVoteEdge(v: Boolean) { p.setBool("voteEdge", v); set { it.copy(voteEdge = v) } }
+    fun setCommentAvatars(v: Boolean) { p.setBool("commentAvatars", v); set { it.copy(commentAvatars = v) } }
     fun setAutoTranslate(v: Boolean) { p.setBool("autoTranslate", v); set { it.copy(autoTranslate = v) } }
     fun setTranslateSecondLanguage(v: String) { p.setString("translateSecondLanguage", v); set { it.copy(translateSecondLanguage = v) } }
     fun setTranslateService(v: String) { p.setString("translateService", v); set { it.copy(translateService = v) } }
@@ -252,6 +258,10 @@ class SettingsStore(private val p: Prefs) {
     fun setRedditAppNotifications(v: Boolean) { p.setBool("redditAppNotifications", v); set { it.copy(redditAppNotifications = v) } }
     fun setHomeFab(v: HomeFab) { p.setInt("homeFab", v.ordinal); set { it.copy(homeFab = v) } }
     fun setThreadFab(v: ThreadFab) { p.setInt("threadFab", v.ordinal); set { it.copy(threadFab = v) } }
+    fun setThreadFabPosition(v: ThreadFabPosition) { p.setInt("threadFabPosition", v.ordinal); set { it.copy(threadFabPosition = v) } }
+    fun setThreadJumpOp(v: Boolean) { p.setBool("threadJumpOp", v); set { it.copy(threadJumpOp = v) } }
+    fun setThreadJumpMine(v: Boolean) { p.setBool("threadJumpMine", v); set { it.copy(threadJumpMine = v) } }
+    fun setThreadJumpNext(v: Boolean) { p.setBool("threadJumpNext", v); set { it.copy(threadJumpNext = v) } }
     fun setTopBarMode(v: TopBarMode) { p.setInt("topBarMode", v.ordinal); set { it.copy(topBarMode = v) } }
     /** [entries] null: back to the default panel (and whatever buttons later versions add to it). */
     fun setTopBarMenu(mode: TopBarMode, entries: List<TopBarMenuEntry>?) {

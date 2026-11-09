@@ -1,5 +1,11 @@
 package com.bennybar.luli_for_reddit.feature.home
 
+import com.bennybar.luli_for_reddit.feature.settings.confirmDialog
+import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.WindowInsets
 import com.bennybar.luli_for_reddit.ui.subredditName
 import com.bennybar.luli_for_reddit.state.RecentSubreddit
 import com.bennybar.luli_for_reddit.ui.ToggleIcon
@@ -127,6 +133,7 @@ internal fun ExploreTab() {
     val anonymous = (session as? SessionState.LoggedIn)?.session?.anonymous == true
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
+    val statusBar = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     var query by rememberSaveable { mutableStateOf("") }
     var favOnly by rememberSaveable { mutableStateOf(false) }
     var sort by rememberSaveable { mutableStateOf("default") } // default | name | subscribers
@@ -175,22 +182,21 @@ internal fun ExploreTab() {
             }
         },
         modifier = Modifier.fillMaxSize(),
+        indicatorPadding = statusBar,
     ) {
-        LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = 130.dp)) {
+        // Under the status bar, softly faded there like Home and subreddits (#127).
+        LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(top = statusBar, bottom = 130.dp)) {
             // Search entry
             item(key = "search") {
+                // Exactly where the search screen's field is (#115): as tall, as far down,
+                // as far from either edge (after the ☰, where its ← is).
+                val sideBar = LocalSideBar.current != null
                 Row(
-                    Modifier.padding(
-                        start = if (LocalSideBar.current != null) 4.dp else 16.dp,
-                        // With the ☰ here: the same spot as on the other tabs (#34).
-                        // In line with the search screen's bar.
-                        top = 4.dp,
-                        end = 16.dp,
-                        bottom = 4.dp,
-                    ),
+                    Modifier.padding(start = if (sideBar) 4.dp else 16.dp, top = 2.dp, end = 24.dp, bottom = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     SideBarButton()
+                    if (sideBar) Spacer(Modifier.width(4.dp))
                     SearchPill("Search communities & posts", onClick = { nav.push(Route.Search()) }, modifier = Modifier.weight(1f))
                 }
             }
@@ -319,9 +325,24 @@ internal fun ExploreTab() {
                     onOpen = { if (it.name.startsWith("u_")) nav.openUser(it.name.removePrefix("u_")) else nav.openSubreddit(it.name) },
                     onStar = ::toggleFavorite,
                     onClearRecent = { app.recentSubreddits.clear() },
+                    onRemoveRecent = { sub ->
+                        scope.launch {
+                            val name = subredditName(sub.namePrefixed)
+                            if (confirmDialog("Remove $name?", "It leaves Recently visited. Opening it again adds it back.", "Remove")) {
+                                app.recentSubreddits.remove(sub.name)
+                            }
+                        }
+                    },
                 )
             }
         }
+        val fade = cs.surface
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(statusBar + 16.dp)
+                .background(Brush.verticalGradient(listOf(fade.copy(alpha = 0.7f), fade.copy(alpha = 0f)))),
+        )
     }
 }
 
@@ -336,6 +357,7 @@ private fun LazyListScope.subscriptionSections(
     onOpen: (Subreddit) -> Unit,
     onStar: (Subreddit) -> Unit,
     onClearRecent: () -> Unit,
+    onRemoveRecent: (Subreddit) -> Unit,
 ) {
     val q = query.trim().lowercase()
     val active = q.isNotEmpty() || favOnly || sort != "default"
@@ -374,9 +396,9 @@ private fun LazyListScope.subscriptionSections(
                 TextButton(onClick = onClearRecent) { Text("Clear") }
             }
         }
-        // No star on ones you aren't subscribed to.
+        // No star on ones you aren't subscribed to. Long-press: remove just this one (#123).
         items(recent, key = { "recent_${it.name}" }, contentType = { "sub" }) {
-            SubredditRow(it, onOpen, if (it.name.lowercase() in byName) onStar else null, visits = visits[it.name.lowercase()])
+            SubredditRow(it, onOpen, if (it.name.lowercase() in byName) onStar else null, visits = visits[it.name.lowercase()]) { onRemoveRecent(it) }
         }
     }
     if (favs.isNotEmpty()) {
@@ -408,7 +430,7 @@ private fun SortMenu(sort: String, onPick: (String) -> Unit) {
 }
 
 @Composable
-internal fun SubredditRow(s: Subreddit, onOpen: (Subreddit) -> Unit, onStar: ((Subreddit) -> Unit)? = null, visits: Int? = null) {
+internal fun SubredditRow(s: Subreddit, onOpen: (Subreddit) -> Unit, onStar: ((Subreddit) -> Unit)? = null, visits: Int? = null, onLongClick: (() -> Unit)? = null) {
     val cs = MaterialTheme.colorScheme
     Tile(
         title = { Text(subredditName(s.namePrefixed)) },
@@ -426,5 +448,6 @@ internal fun SubredditRow(s: Subreddit, onOpen: (Subreddit) -> Unit, onStar: ((S
             }
         },
         onClick = { onOpen(s) },
+        onLongClick = onLongClick,
     )
 }

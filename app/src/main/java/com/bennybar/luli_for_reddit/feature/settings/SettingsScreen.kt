@@ -1,5 +1,9 @@
 package com.bennybar.luli_for_reddit.feature.settings
 
+import androidx.compose.material.icons.rounded.AccountCircle
+import androidx.compose.material.icons.outlined.Folder
+import android.provider.DocumentsContract
+import com.bennybar.luli_for_reddit.ui.SearchIcon
 import androidx.compose.material.icons.outlined.PostAdd
 import androidx.compose.material.icons.rounded.FilterList
 import androidx.compose.material.icons.rounded.Tag
@@ -10,6 +14,9 @@ import androidx.compose.material.icons.rounded.Forum
 import androidx.compose.material.icons.rounded.DynamicFeed
 import com.bennybar.luli_for_reddit.settings.HomeFab
 import com.bennybar.luli_for_reddit.settings.ThreadFab
+import com.bennybar.luli_for_reddit.settings.ThreadFabPosition
+import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.RecordVoiceOver
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.outlined.ModeComment
 import androidx.compose.material.icons.rounded.ViewCarousel
@@ -104,7 +111,6 @@ import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.Restore
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Straighten
 import androidx.compose.material.icons.rounded.Swipe
@@ -350,6 +356,16 @@ fun SettingsList(
     val pickBackup = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) scope.launch { restoreData(context, uri) }
     }
+    // Backups go to a folder picked once (#116); picking it (again) then backs up there.
+    var backupFolder by remember { mutableStateOf(backupFolder(context)) }
+    val pickBackupFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri != null) {
+            context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+            app.prefs.setString(BACKUP_FOLDER, uri.toString())
+            backupFolder = uri
+            scope.launch { backupData(context, uri) }
+        }
+    }
 
     val all = buildList {
         fun section(title: String) = add(Entry("h:$title", null) { SectionHeader(title) })
@@ -573,6 +589,24 @@ fun SettingsList(
         tile("Floating button in threads", s.threadFab.label, Icons.Outlined.ModeComment, onClick = launch {
             pickOption(ThreadFab.entries.map { PickOption(it, it.label) }, s.threadFab)?.let(ctrl::setThreadFab)
         })
+        tile("Jump button position in threads", s.threadFabPosition.label, Icons.Rounded.KeyboardArrowDown, onClick = launch {
+            pickOption(ThreadFabPosition.entries.map { PickOption(it, it.label) }, s.threadFabPosition)?.let(ctrl::setThreadFabPosition)
+        })
+        switch(
+            "Next comment button",
+            "Jump to the next top-level comment in threads (long-press: the previous one)",
+            Icons.Rounded.KeyboardArrowDown, s.threadJumpNext, ctrl::setThreadJumpNext,
+        )
+        switch(
+            "Jump to OP's comments button",
+            "Show a button in threads to jump between comments by the original poster",
+            Icons.Rounded.RecordVoiceOver, s.threadJumpOp, ctrl::setThreadJumpOp,
+        )
+        switch(
+            "Jump to your comments button",
+            "Show a button in threads to jump between your own comments",
+            Icons.Rounded.Person, s.threadJumpMine, ctrl::setThreadJumpMine,
+        )
         tile("Navigation", NAV_STYLES[s.navStyle.coerceIn(0, 2)].first, Icons.Rounded.Menu, onClick = launch {
             pickOption(NAV_STYLES.mapIndexed { i, (l, d) -> PickOption(i, l, d) }, s.navStyle)?.let(ctrl::setNavStyle)
         })
@@ -626,8 +660,13 @@ fun SettingsList(
             Icons.Rounded.UnfoldLess, s.collapseRepliesOnly, ctrl::setCollapseRepliesOnly,
         )
         switch(
+            "Profile pictures in comments",
+            "With the website sign-in: one more request per thread brings its commenters' pictures",
+            Icons.Rounded.AccountCircle, s.commentAvatars, ctrl::setCommentAvatars,
+        )
+        switch(
             "Mark comments you voted on",
-            "An edge in the vote's color on comments you upvoted or downvoted",
+            "A soft glow in the vote's color on comments you upvoted or downvoted",
             Icons.Rounded.ThumbsUpDown, s.voteEdge, ctrl::setVoteEdge,
         )
         tile(
@@ -926,7 +965,12 @@ fun SettingsList(
             nav.showSnackbar("Cache cleared")
         })
         tile("Back up data", "Export settings, For You model & history (no login/keys)", Icons.Rounded.Backup) {
-            scope.launch { backupData(context) }
+            val folder = backupFolder
+            if (folder != null) scope.launch { backupData(context, folder) }
+            else runCatching { pickBackupFolder.launch(null) }.onFailure { scope.launch { backupData(context, null) } }
+        }
+        tile("Backup folder", backupFolder?.let(::folderLabel) ?: "Chosen on your first backup", Icons.Outlined.Folder) {
+            runCatching { pickBackupFolder.launch(backupFolder) }.onFailure { nav.showSnackbar("Couldn't open the folder picker: ${it.message}") }
         }
         tile("Restore data", "Import a backup file", Icons.Rounded.Restore) {
             runCatching { pickBackup.launch(arrayOf("application/json", "application/octet-stream", "text/*")) }
@@ -1074,7 +1118,7 @@ fun SettingsList(
             onValueChange = { query = it },
             singleLine = true,
             placeholder = { Text("Search settings") },
-            leadingIcon = { Icon(Icons.Rounded.Search, null) },
+            leadingIcon = { Icon(SearchIcon, null) },
             shape = RoundedCornerShape(28.dp),
             colors = TextFieldDefaults.colors(
                 focusedContainerColor = cs.surfaceContainerHigh,
@@ -1416,10 +1460,36 @@ private suspend fun checkUpdatesNow() {
     }
 }
 
-/** Shares the prefs backup as `ilay-backup.json` (FileProvider, from the cache dir). */
-private suspend fun backupData(context: Context) {
+private const val BACKUP_FOLDER = "backupFolderUri"
+
+/** The backup folder picked before, while Ilay may still write there. */
+private fun backupFolder(context: Context): Uri? {
+    val uri = app.prefs.getString(BACKUP_FOLDER)?.let(Uri::parse) ?: return null
+    return uri.takeIf { u -> context.contentResolver.persistedUriPermissions.any { it.uri == u && it.isWritePermission } }
+}
+
+/** "Download/Ilay" from a picked folder's tree id ("primary:Download/Ilay"). */
+private fun folderLabel(uri: Uri): String =
+    runCatching { DocumentsContract.getTreeDocumentId(uri).substringAfter(':').ifEmpty { "Internal storage" } }.getOrDefault(uri.toString())
+
+/**
+ * Writes the prefs backup into [folder] as `ilay-backup-<date>.json` (#116); without
+ * one (no folder picker on the device), shares it as `ilay-backup.json` instead.
+ */
+private suspend fun backupData(context: Context, folder: Uri?) {
     try {
         val json = Backup.export(app.prefs)
+        if (folder != null) {
+            val name = "ilay-backup-${java.text.SimpleDateFormat("yyyy-MM-dd-HHmm", java.util.Locale.US).format(java.util.Date())}.json"
+            withContext(Dispatchers.IO) {
+                val dir = DocumentsContract.buildDocumentUriUsingTree(folder, DocumentsContract.getTreeDocumentId(folder))
+                val doc = DocumentsContract.createDocument(context.contentResolver, dir, "application/json", name)
+                    ?: throw java.io.IOException("Couldn't create the file")
+                context.contentResolver.openOutputStream(doc)!!.use { it.write(json.toByteArray()) }
+            }
+            app.navigatorOrNull?.showSnackbar("Backed up to ${folderLabel(folder)}/$name")
+            return
+        }
         val file = withContext(Dispatchers.IO) {
             File(context.cacheDir, "ilay-backup.json").apply { writeText(json) }
         }

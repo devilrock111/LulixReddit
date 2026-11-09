@@ -1,5 +1,6 @@
 package com.bennybar.luli_for_reddit.settings
 
+import com.bennybar.luli_for_reddit.ui.SearchIcon
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Reply
 import androidx.compose.material.icons.automirrored.rounded.ViewList
@@ -10,7 +11,6 @@ import androidx.compose.material.icons.outlined.Settings as SettingsIcon // not 
 import androidx.compose.material.icons.outlined.Spa
 import androidx.compose.material.icons.outlined.VideoLibrary
 import androidx.compose.material.icons.outlined.ViewAgenda
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DoNotDisturbOn
 import androidx.compose.material.icons.rounded.ArrowDownward
@@ -52,7 +52,7 @@ enum class TopBarMode(val label: String, val description: String) {
  * [half]: two in a row share it, like New post / Settings always did.
  */
 enum class TopBarMenuItem(val id: String, val label: String, val icon: ImageVector, val half: Boolean = false) {
-    SEARCH("search", "Search Reddit", Icons.Rounded.Search),
+    SEARCH("search", "Search Reddit", SearchIcon),
     PROFILE("profile", "Your profile", Icons.Outlined.AccountCircle, half = true),
     NEW_POST("newPost", "New post", Icons.Outlined.PostAdd, half = true),
     SETTINGS("settings", "Settings", Icons.Outlined.SettingsIcon, half = true),
@@ -119,6 +119,13 @@ enum class ThreadFab(val label: String) {
     OFF("Off"),
 }
 
+/** Horizontal position of the floating toolbar in a thread. Persisted by index (`threadFabPosition`). */
+enum class ThreadFabPosition(val label: String) {
+    LEFT("Left"),
+    MIDDLE("Middle"),
+    RIGHT("Right"),
+}
+
 /** How posts are laid out in feeds. Persisted by index (`postDisplay`). */
 enum class PostDisplay(val label: String, val icon: ImageVector) {
     LARGE("Default", Icons.Outlined.ViewAgenda),
@@ -173,6 +180,7 @@ data class Settings(
     val tapToCollapse: Boolean = false, // tap a comment to collapse it (else long-press)
     val collapseRepliesOnly: Boolean = false, // collapsing keeps the comment's own text, hides its replies
     val voteEdge: Boolean = true, // comments you voted on get an edge in the vote's color
+    val commentAvatars: Boolean = true, // commenters' profile pictures (website sign-in, #133)
     val autoTranslate: Boolean = false, // posts in neither translation language open translated into the phone's
     val translateSecondLanguage: String = "", // language code Translate also offers ("" = none)
     val translateService: String = "openai", // for what the phone can't translate: "openai" (the AI key) or "azure"
@@ -238,6 +246,10 @@ data class Settings(
     val redditAppNotifications: Boolean = false, // take over the Reddit app's notifications (needs notification access)
     val homeFab: HomeFab = HomeFab.NEW_POST, // floating button on Home and in subreddits (#90)
     val threadFab: ThreadFab = ThreadFab.NEW_COMMENT, // floating button in a thread (#90)
+    val threadFabPosition: ThreadFabPosition = ThreadFabPosition.RIGHT, // horizontal position of the thread toolbar
+    val threadJumpOp: Boolean = true, // show OP comments jump button in thread toolbar
+    val threadJumpMine: Boolean = true, // show your comments jump button in thread toolbar
+    val threadJumpNext: Boolean = true, // the thread toolbar's next top-level comment button (#121)
     val topBarMode: TopBarMode = TopBarMode.EXPANDABLE, // Posts-screen action layout
     // The top bar menu panel's buttons and order, per mode (#108).
     val topBarMenuExpandable: List<TopBarMenuEntry> = TopBarMenuItem.parse(null, TopBarMode.EXPANDABLE),

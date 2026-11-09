@@ -1,5 +1,12 @@
 package com.bennybar.luli_for_reddit.feature.home
 
+import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Bookmark
+import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material.icons.outlined.EditNote
+import androidx.compose.material.icons.outlined.OfflinePin
+import androidx.compose.material.icons.outlined.DynamicFeed
 import com.bennybar.luli_for_reddit.ui.subredditName
 import com.bennybar.luli_for_reddit.model.Subreddit
 import com.bennybar.luli_for_reddit.feature.feed.SectionHeader
@@ -286,6 +293,8 @@ fun HomeScreen() {
     }
 
     val navOffset by animateFloatAsState(if (chrome) 0f else 1.4f, tween(220, easing = FastOutSlowInEasing), label = "nav")
+    // For the tabs' floating buttons (LocalNavHidden): past 1 the nav only clears its shadow.
+    val navHidden = remember { { navOffset.coerceIn(0f, 1f) } }
 
     fun selectTab(i: Int) {
         // Double-tapping Explore opens search, keyboard up.
@@ -307,6 +316,8 @@ fun HomeScreen() {
     }
 
     SideBarDrawer(drawer, sideBar, selected = index, current = null, unread = unread, onTab = ::selectTab) {
+    // The tabs' floating buttons follow the nav down as it hides (aboveFloatingNav).
+    CompositionLocalProvider(LocalNavHidden provides navHidden.takeIf { bottomBar }) {
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
         KeepAliveTabs(
             selected = index,
@@ -317,15 +328,15 @@ fun HomeScreen() {
             when (i) {
                 // Its feed runs under the status bar; it pads its own top bar.
                 0 -> FrontpageTab(selected = index == 0)
-                1 -> Box(Modifier.statusBarsPadding()) { ExploreTab() }
+                1 -> ExploreTab() // runs under the status bar, with its own fade (#127)
                 2 -> Box(Modifier.statusBarsPadding()) { InboxScreen(reselect = inboxReselect) }
                 else -> Box(Modifier.statusBarsPadding()) { ProfileTab() }
             }
         }
         // Content fades out just below the status bar, rather than being cut off (#74).
-        // (Posts has its own, under its top bar.)
+        // (Posts and Explore have their own, softer one.)
         val fade = MaterialTheme.colorScheme.surface
-        if (index != 0) Box(
+        if (index >= 2) Box(
             Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
@@ -356,6 +367,7 @@ fun HomeScreen() {
             onSelected = ::selectTab,
         )
         }
+    }
     }
     }
 }
@@ -421,17 +433,30 @@ private fun SideBarDrawer(
     }
 }
 
-/** An entry's icon, in the side bar and in Settings › Side bar entries. */
+/** An entry's icon, in the side bar and in Settings › Side bar entries: outlined, like an unselected tab's. */
 internal val SideBarItem.icon: ImageVector
     get() = when (this) {
         SideBarItem.SAVED -> Icons.Outlined.BookmarkBorder
+        SideBarItem.CUSTOM_FEEDS -> Icons.Outlined.DynamicFeed
+        SideBarItem.HISTORY -> Icons.Rounded.History
+        SideBarItem.OFFLINE -> Icons.Outlined.OfflinePin
+        SideBarItem.DRAFTS -> Icons.Outlined.EditNote
+        SideBarItem.SETTINGS -> Icons.Outlined.Settings
+        SideBarItem.RECENTLY_VISITED -> Icons.Outlined.Schedule
+        SideBarItem.FAVORITES -> Icons.Outlined.StarBorder
+    }
+
+/** Its page open: filled, as the selected tab's is (#129). History has no filled form. */
+internal val SideBarItem.selectedIcon: ImageVector
+    get() = when (this) {
+        SideBarItem.SAVED -> Icons.Rounded.Bookmark
         SideBarItem.CUSTOM_FEEDS -> Icons.Rounded.DynamicFeed
         SideBarItem.HISTORY -> Icons.Rounded.History
         SideBarItem.OFFLINE -> Icons.Rounded.OfflinePin
         SideBarItem.DRAFTS -> Icons.Rounded.EditNote
-        SideBarItem.SETTINGS -> Icons.Outlined.Settings
+        SideBarItem.SETTINGS -> Icons.Rounded.Settings
         SideBarItem.RECENTLY_VISITED -> Icons.Rounded.Schedule
-        SideBarItem.FAVORITES -> Icons.Outlined.StarBorder
+        SideBarItem.FAVORITES -> Icons.Rounded.Star
     }
 
 /**
@@ -527,7 +552,7 @@ private fun SideBar(selected: Int, current: Route?, unread: Int, open: Boolean, 
                         afterList = false
                         NavigationDrawerItem(
                             label = { Text(item.label) },
-                            icon = { Icon(item.icon, null) },
+                            icon = { Icon(if (route == current) item.selectedIcon else item.icon, null) },
                             selected = route == current,
                             onClick = { onPick { if (route != current) nav.openFromSideBar(route) } },
                         )

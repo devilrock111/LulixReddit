@@ -1,5 +1,6 @@
 package com.bennybar.luli_for_reddit.feature.feed
 
+import com.bennybar.luli_for_reddit.ui.SearchIcon
 import androidx.compose.material3.IconButtonDefaults
 import android.view.HapticFeedbackConstants
 import android.view.View
@@ -30,7 +31,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import com.bennybar.luli_for_reddit.feature.home.LocalSideBar
 import com.bennybar.luli_for_reddit.feature.home.SideBarButton
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -288,7 +288,7 @@ fun PillTextField(
     onValueChange: (String) -> Unit,
     placeholder: String,
     modifier: Modifier = Modifier,
-    leading: ImageVector = Icons.Rounded.Search,
+    leading: ImageVector = SearchIcon,
     trailing: (@Composable () -> Unit)? = null,
     onSearch: ((String) -> Unit)? = null,
     singleLine: Boolean = true,
@@ -317,17 +317,20 @@ fun PillTextField(
     )
 }
 
-/** A tappable pill that looks like a search box ("Search Reddit"). */
+/**
+ * A tappable pill that looks like a search box ("Search Reddit"): the search screen's
+ * field, 60dp tall with its icon and text where the field has them (#115).
+ */
 @Composable
-fun SearchPill(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, icon: ImageVector = Icons.Rounded.Search) {
+fun SearchPill(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, icon: ImageVector = SearchIcon) {
     val cs = MaterialTheme.colorScheme
     GlassSurface(modifier) {
         Row(
-            Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 18.dp, vertical = 16.dp),
+            Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 18.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(icon, null, tint = cs.onSurfaceVariant)
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(16.dp))
             Text(label, color = cs.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
@@ -356,12 +359,16 @@ fun Tile(
     leading: (@Composable () -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
     onClick: (() -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null,
 ) {
     val cs = MaterialTheme.colorScheme
     Row(
         modifier
             .fillMaxWidth()
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .then(
+                if (onLongClick != null) Modifier.combinedClickable(onClick = { onClick?.invoke() }, onLongClick = onLongClick)
+                else if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier
+            )
             .heightIn(min = if (subtitle != null) 72.dp else 56.dp)
             .padding(start = 16.dp, end = if (trailing != null) 8.dp else 16.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,

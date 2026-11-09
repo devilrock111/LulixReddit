@@ -390,17 +390,24 @@ private struct GlassPillStyle: ButtonStyle {
 }
 
 /// A commenter's initial on a colour picked from their name, so one person keeps
-/// their colour down a thread.
+/// their colour down a thread; their profile picture over it once it's known (#133).
 private struct AuthorDot: View {
     let name: String
 
     var body: some View {
         let deleted = name.isEmpty || name.hasPrefix("[")
+        let icon = deleted || !app.settings.value.commentAvatars ? nil : app.authorAvatars.icons[name.lowercased()]
         Text(verbatim: deleted ? "?" : String(name.prefix(1)).uppercased())
             .font(.system(size: 12, weight: .bold))
             .foregroundStyle(.white)
             .frame(width: 24, height: 24)
             .background(deleted ? Color(.systemGray) : avatarColor(name), in: .circle)
+            .overlay {
+                if let icon {
+                    RemoteImage(url: URL(string: icon)) { Color.clear }
+                        .clipShape(.circle)
+                }
+            }
     }
 }
 
@@ -499,7 +506,7 @@ struct FlairChip: View {
         .foregroundStyle(.secondary)
         .padding(.horizontal, 5)
         .padding(.vertical, 1)
-        .background(Color(.tertiarySystemFill), in: .rect(cornerRadius: 4))
+        .background(.tint.opacity(0.16), in: .rect(cornerRadius: 4)) // tinted, as post flairs (#131)
         .frame(maxWidth: 140, alignment: .leading)
         .fixedSize(horizontal: false, vertical: true)
     }

@@ -27,6 +27,7 @@ final class SettingsStore {
         s.tapToCollapse = b("tapToCollapse", s.tapToCollapse)
         s.collapseRepliesOnly = b("collapseRepliesOnly", s.collapseRepliesOnly)
         s.voteEdge = b("voteEdge", s.voteEdge)
+        s.commentAvatars = b("commentAvatars", s.commentAvatars)
         s.autoTranslate = b("autoTranslate", s.autoTranslate)
         s.translateSecondLanguage = p.getString("translateSecondLanguage") ?? s.translateSecondLanguage
         s.translateService = p.getString("translateService") ?? s.translateService
@@ -89,6 +90,10 @@ final class SettingsStore {
         s.showApiUsage = b("showApiUsage", s.showApiUsage)
         s.notifyInbox = b("notifyInbox", s.notifyInbox)
         s.homeFab = idx("homeFab", s.homeFab)
+        s.threadFabPosition = idx("threadFabPosition", s.threadFabPosition)
+        s.threadJumpOp = b("threadJumpOp", s.threadJumpOp)
+        s.threadJumpMine = b("threadJumpMine", s.threadJumpMine)
+        s.threadJumpNext = b("threadJumpNext", s.threadJumpNext)
         // Old installs may have stored the removed "compact" (1) or the old
         // expandable index (2); clamping maps both safely.
         if let m = p.getInt("topBarMode") {
@@ -211,6 +216,7 @@ final class SettingsStore {
     func setTapToCollapse(_ v: Bool) { p.setBool("tapToCollapse", v); set { $0.tapToCollapse = v } }
     func setCollapseRepliesOnly(_ v: Bool) { p.setBool("collapseRepliesOnly", v); set { $0.collapseRepliesOnly = v } }
     func setVoteEdge(_ v: Bool) { p.setBool("voteEdge", v); set { $0.voteEdge = v } }
+    func setCommentAvatars(_ v: Bool) { p.setBool("commentAvatars", v); set { $0.commentAvatars = v } }
     func setAutoTranslate(_ v: Bool) { p.setBool("autoTranslate", v); set { $0.autoTranslate = v } }
     func setTranslateSecondLanguage(_ v: String) { p.setString("translateSecondLanguage", v); set { $0.translateSecondLanguage = v } }
     func setTranslateService(_ v: String) { p.setString("translateService", v); set { $0.translateService = v } }
@@ -238,6 +244,10 @@ final class SettingsStore {
     func setShowApiUsage(_ v: Bool) { p.setBool("showApiUsage", v); set { $0.showApiUsage = v } }
     func setNotifyInbox(_ v: Bool) { p.setBool("notifyInbox", v); set { $0.notifyInbox = v } }
     func setHomeFab(_ v: HomeFab) { p.setInt("homeFab", v.rawValue); set { $0.homeFab = v } }
+    func setThreadFabPosition(_ v: ThreadFabPosition) { p.setInt("threadFabPosition", v.rawValue); set { $0.threadFabPosition = v } }
+    func setThreadJumpOp(_ v: Bool) { p.setBool("threadJumpOp", v); set { $0.threadJumpOp = v } }
+    func setThreadJumpMine(_ v: Bool) { p.setBool("threadJumpMine", v); set { $0.threadJumpMine = v } }
+    func setThreadJumpNext(_ v: Bool) { p.setBool("threadJumpNext", v); set { $0.threadJumpNext = v } }
     func setTopBarMode(_ v: TopBarMode) { p.setInt("topBarMode", v.rawValue); set { $0.topBarMode = v } }
     func setNavLabels(_ v: Bool) { p.setBool("navLabels", v); set { $0.navLabels = v } }
     func setNavStyle(_ v: Int) { p.setInt("navStyle", v); set { $0.navStyle = v } }

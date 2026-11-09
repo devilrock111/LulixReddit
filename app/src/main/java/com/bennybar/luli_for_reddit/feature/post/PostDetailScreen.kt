@@ -1,11 +1,19 @@
 package com.bennybar.luli_for_reddit.feature.post
 
+import androidx.compose.ui.platform.LocalDensity
+import com.bennybar.luli_for_reddit.state.LocalAuthorIcons
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.ui.graphics.Brush
+import com.bennybar.luli_for_reddit.ui.SearchIcon
 import com.bennybar.luli_for_reddit.ui.subredditName
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import com.bennybar.luli_for_reddit.feature.feed.FabScroll
 import com.bennybar.luli_for_reddit.feature.feed.CollapsingFab
 import com.bennybar.luli_for_reddit.settings.ThreadFab
+import com.bennybar.luli_for_reddit.settings.ThreadFabPosition
+import androidx.compose.material3.FabPosition
 import androidx.compose.material.icons.rounded.VerticalAlignTop
 import com.bennybar.luli_for_reddit.settings.calmComments
 import com.bennybar.luli_for_reddit.ui.ToggleIcon
@@ -83,7 +91,6 @@ import androidx.compose.material.icons.rounded.PlayCircleFilled
 import androidx.compose.material.icons.rounded.RecordVoiceOver
 import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.rounded.Repeat
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.SearchOff
 import androidx.compose.material.icons.rounded.SubdirectoryArrowRight
@@ -305,15 +312,15 @@ fun PostDetailScreen(subreddit: String, postId: String, focusCommentId: String?)
 
     /**
      * Scrolls to the next comment below the current top that passes [match],
-     * wrapping to the first. False when none in the thread does. List index 0
-     * is the post header, so comment `ci` lives at list index `ci + 1`.
+     * wrapping to the first when moving forward. False when none does. List
+     * index 0 is the post header, so comment `ci` lives at list index `ci + 1`.
      */
     fun jumpNext(backwards: Boolean = false, match: (Comment) -> Boolean): Boolean {
         if (flat.isEmpty()) return false
         val topIndex = listState.firstVisibleItemIndex
         val hits = flat.indices.filter { !flat[it].isMore && match(flat[it]) }.map { it + 1 }
         if (hits.isEmpty()) return false
-        val target = if (backwards) hits.lastOrNull { it < topIndex } ?: hits.last()
+        val target = if (backwards) hits.lastOrNull { it < topIndex } ?: return false
         else hits.firstOrNull { it > topIndex } ?: hits.first()
         scope.launch { listState.animateScrollToItem(target) }
         return true
@@ -375,7 +382,7 @@ fun PostDetailScreen(subreddit: String, postId: String, focusCommentId: String?)
                         SortMenu(vm.currentSort, vm::changeSort)
                         IconTooltip("Search comments") {
                             IconButton(onClick = ::toggleSearch) {
-                                Icon(if (searchOpen) Icons.Rounded.SearchOff else Icons.Rounded.Search, "Search comments")
+                                Icon(if (searchOpen) Icons.Rounded.SearchOff else SearchIcon, "Search comments")
                             }
                         }
                         IconButton(onClick = { showPostActionsSheet(thread.post) }) { Icon(Icons.Rounded.MoreVert, "More") }
@@ -384,37 +391,55 @@ fun PostDetailScreen(subreddit: String, postId: String, focusCommentId: String?)
                 },
             )
         },
+        floatingActionButtonPosition = when (settings.threadFabPosition) {
+            ThreadFabPosition.LEFT -> FabPosition.Start
+            ThreadFabPosition.MIDDLE -> FabPosition.Center
+            ThreadFabPosition.RIGHT -> FabPosition.End
+        },
         floatingActionButton = {
             if (thread != null) {
                 val newCount = remember(flat, since, username) { flat.count(::isNew) }
-                val hasMine = remember(flat, username) { username.isNotEmpty() && flat.any { it.author == username } }
+                val opAuthor = thread.post.author
+                val hasOp = remember(flat, opAuthor, settings.threadJumpOp) {
+                    settings.threadJumpOp && opAuthor.isNotEmpty() && opAuthor != "[deleted]" && flat.any { !it.isMore && it.author == opAuthor }
+                }
+                val hasMine = remember(flat, username, settings.threadJumpMine) {
+                    settings.threadJumpMine && username.isNotEmpty() && flat.any { !it.isMore && it.author == username }
+                }
                 ThreadToolbar(
                     newCount = newCount,
+                    hasOp = hasOp,
                     hasMine = hasMine,
-                    hasComments = thread.comments.isNotEmpty(),
+                    hasComments = settings.threadJumpNext && thread.comments.isNotEmpty(), // the ↓ button (#121)
                     onPrevNew = { jumpNext(backwards = true, match = ::isNew) },
                     onNextNew = { jumpNext(match = ::isNew) },
+                    onOp = { jumpNext { it.author == opAuthor } },
+                    onPrevOp = {
+                        haptic.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                        jumpNext(backwards = true) { it.author == opAuthor }
+                    },
                     onMine = { jumpNext { it.author == username } },
+                    onPrevMine = {
+                        haptic.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                        jumpNext(backwards = true) { it.author == username }
+                    },
                     button = settings.threadFab,
+                    position = settings.threadFabPosition,
                     onComment = { actions.replyToPost() },
                     onTop = { scope.launch { listState.animateScrollToItem(0) } },
                     onSummarize = if (!aiKey.isNullOrEmpty()) ({ showSummarySheet(thread.post, flat) }) else null,
                     onAsk = if (!aiKey.isNullOrEmpty()) ({ showAskSheet(thread.post, flat) { id -> revealId = id } }) else null,
                     onNext = { jumpNext { it.depth == 0 } },
-                    onNextLongPress = {
-                        // Long-press on the ↓ button: jump by the original poster or
-                        // your own comments instead of top-level ones.
+                    onPrev = {
                         haptic.performHapticFeedback(HapticFeedbackType.SegmentTick)
-                        showJumpMenu(thread.post.author, username, isNew = if (newCount > 0) ::isNew else null) { test ->
-                            if (!jumpNext(match = test)) nav.showSnackbar("No such comment here")
-                        }
+                        jumpNext(backwards = true) { it.depth == 0 }
                     },
                     expanded = fab.expanded,
                 )
             }
         },
     ) { padding ->
-        Box(Modifier.fillMaxSize().padding(padding).nestedScroll(fab)) {
+        Box(Modifier.fillMaxSize().padding(top = padding.calculateTopPadding()).nestedScroll(fab)) {
             when {
                 thread != null -> Column(Modifier.fillMaxSize()) {
                     if (focusCommentId != null) FocusBanner { nav.pop(); nav.push(Route.Post(subreddit, postId)) }
@@ -671,7 +696,8 @@ private fun CommentList(
     val flat = thread.flat
     // Animated images in the thread pause while it scrolls (see rememberPauseWhileScrolling).
     val scrolling = remember(listState) { { listState.isScrollInProgress } }
-    CompositionLocalProvider(LocalListScrolling provides scrolling) {
+    val icons by app.authorAvatars.icons.collectAsState()
+    CompositionLocalProvider(LocalListScrolling provides scrolling, LocalAuthorIcons provides if (settings.commentAvatars) icons else emptyMap()) {
         LazyColumn(
             Modifier.fillMaxSize(),
             state = listState,
@@ -855,7 +881,7 @@ private fun SearchBar(
     ) {
         Row(Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Spacer(Modifier.width(6.dp))
-            Icon(Icons.Rounded.Search, null, Modifier.size(20.dp), tint = cs.onSurfaceVariant)
+            Icon(SearchIcon, null, Modifier.size(20.dp), tint = cs.onSurfaceVariant)
             TextField(
                 value = query,
                 onValueChange = onQuery,
@@ -891,68 +917,63 @@ private fun SearchBar(
     }
 }
 
-/** Long-press menu of the ↓ button: jump by OP, your comments or new ones instead. */
-@OptIn(ExperimentalMaterial3Api::class)
-private fun showJumpMenu(opAuthor: String, me: String, isNew: ((Comment) -> Boolean)?, onPick: ((Comment) -> Boolean) -> Unit) {
-    Overlays.launch { done ->
-        val sheet = rememberModalBottomSheetState()
-        val scope = rememberCoroutineScope()
-        val entries = buildList<Triple<String, ImageVector, (Comment) -> Boolean>> {
-            add(Triple("Next top-level comment", Icons.Rounded.KeyboardArrowDown) { c -> c.depth == 0 })
-            if (isNew != null) add(Triple("Next new comment", Icons.Rounded.FiberNew, isNew))
-            add(Triple("Next comment by OP", Icons.Rounded.RecordVoiceOver) { c -> c.author == opAuthor })
-            if (me.isNotEmpty()) add(Triple("Next of your comments", Icons.Rounded.Person) { c -> c.author == me })
-        }
-        ModalBottomSheet(onDismissRequest = done, sheetState = sheet) {
-            Column(Modifier.navigationBarsPadding().padding(bottom = 8.dp)) {
-                for ((label, icon, test) in entries) {
-                    ListItem(
-                        content = { Text(label) },
-                        leadingContent = { Icon(icon, null) },
-                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                        modifier = Modifier.clickable { scope.hideThen(sheet) { done(); onPick(test) } },
-                    )
-                }
-            }
-        }
-    }
-}
-
 /**
  * Two levels, like WhatsApp's (#72): a row for moving through the thread,
- * [↑ N new ↓] [your comment] [summarize] [ask] [● next top-level], over a big
+ * [↑ N new ↓] [OP] [your comment] [summarize] [ask] [● next/prev top-level], over a big
  * New comment button that folds as you scroll.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ThreadToolbar(
     newCount: Int,
+    hasOp: Boolean,
     hasMine: Boolean,
     hasComments: Boolean,
     onPrevNew: () -> Unit,
     onNextNew: () -> Unit,
+    onOp: () -> Unit,
+    onPrevOp: () -> Unit,
     onMine: () -> Unit,
+    onPrevMine: () -> Unit,
     button: ThreadFab, // the big button under the row (#90)
+    position: ThreadFabPosition,
     onComment: () -> Unit,
     onTop: () -> Unit,
     onSummarize: (() -> Unit)?,
     onAsk: (() -> Unit)?,
     onNext: () -> Unit,
-    onNextLongPress: () -> Unit,
+    onPrev: () -> Unit,
     expanded: Boolean,
 ) {
     val cs = MaterialTheme.colorScheme
     val on = cs.onSurface
 
     @Composable
-    fun btn(icon: ImageVector, tip: String, onClick: () -> Unit) {
+    fun btn(icon: ImageVector, tip: String, onLongClick: (() -> Unit)? = null, onClick: () -> Unit) {
         IconTooltip(tip) {
-            IconButton(onClick = onClick, modifier = Modifier.size(48.dp)) { Icon(icon, tip, Modifier.size(24.dp), tint = on) }
+            if (onLongClick != null) {
+                Box(
+                    Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .combinedClickable(onClick = onClick, onLongClick = onLongClick, onClickLabel = tip),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(icon, tip, Modifier.size(24.dp), tint = on)
+                }
+            } else {
+                IconButton(onClick = onClick, modifier = Modifier.size(48.dp)) { Icon(icon, tip, Modifier.size(24.dp), tint = on) }
+            }
         }
     }
 
-    Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-    if (newCount > 0 || hasMine || onSummarize != null || onAsk != null || hasComments) Surface(color = cs.surfaceContainerHigh, shape = CircleShape, shadowElevation = 3.dp) {
+    val align = when (position) {
+        ThreadFabPosition.LEFT -> Alignment.Start
+        ThreadFabPosition.MIDDLE -> Alignment.CenterHorizontally
+        ThreadFabPosition.RIGHT -> Alignment.End
+    }
+    Column(horizontalAlignment = align, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    if (newCount > 0 || hasOp || hasMine || onSummarize != null || onAsk != null || hasComments) Surface(color = cs.surfaceContainerHigh, shape = CircleShape, shadowElevation = 3.dp) {
         Row(Modifier.padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
             if (newCount > 0) {
                 // The new-comments stepper, on its own tonal segment.
@@ -960,26 +981,27 @@ private fun ThreadToolbar(
                     Modifier.height(48.dp).clip(CircleShape).background(on.copy(alpha = 0.08f)),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    btn(Icons.Rounded.KeyboardArrowUp, "Previous new comment", onPrevNew)
+                    btn(Icons.Rounded.KeyboardArrowUp, "Previous new comment", onClick = onPrevNew)
                     Text("$newCount new", fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = on)
-                    btn(Icons.Rounded.KeyboardArrowDown, "Next new comment", onNextNew)
+                    btn(Icons.Rounded.KeyboardArrowDown, "Next new comment", onClick = onNextNew)
                 }
             }
-            if (hasMine) btn(Icons.Rounded.Person, "Your comments", onMine)
-            onSummarize?.let { btn(Icons.Rounded.AutoAwesome, "Summarize thread", it) }
-            onAsk?.let { btn(Icons.Rounded.Forum, "Ask about this thread", it) }
+            if (hasOp) btn(Icons.Rounded.RecordVoiceOver, "OP's comments (long-press for previous)", onLongClick = onPrevOp, onClick = onOp)
+            if (hasMine) btn(Icons.Rounded.Person, "Your comments (long-press for previous)", onLongClick = onPrevMine, onClick = onMine)
+            onSummarize?.let { btn(Icons.Rounded.AutoAwesome, "Summarize thread", onClick = it) }
+            onAsk?.let { btn(Icons.Rounded.Forum, "Ask about this thread", onClick = it) }
             if (hasComments) {
-                // The main action: a filled accent circle. Long-press for the
-                // jump menu (OP / yours / new).
+                // The main action: a filled accent circle. Tap for next
+                // top-level comment, long-press for previous.
                 Box(
                     Modifier
                         .size(48.dp)
                         .clip(CircleShape)
                         .background(cs.primary)
-                        .combinedClickable(onClick = onNext, onLongClick = onNextLongPress, onClickLabel = "Next top-level comment"),
+                        .combinedClickable(onClick = onNext, onLongClick = onPrev, onClickLabel = "Next top-level comment"),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(Icons.Rounded.KeyboardArrowDown, "Next top-level comment (long-press for more)", tint = cs.onPrimary)
+                    Icon(Icons.Rounded.KeyboardArrowDown, "Next top-level comment (long-press for previous)", tint = cs.onPrimary)
                 }
             }
         }
@@ -1314,6 +1336,26 @@ private fun PostMedia(p: Post, nav: AppNavigator, radius: androidx.compose.ui.un
         return
     }
     if (p.type == PostType.LINK) {
+        // The link's own picture (a news article's), as its card in the list has it (#130).
+        val preview = p.previewUrl
+        if (preview != null) {
+            val w = p.previewWidth
+            val h = p.previewHeight
+            val aspect = if (w != null && h != null && h > 0) (w.toFloat() / h).coerceIn(0.5f, 2f) else 16f / 9f
+            NsfwBlur(blur, Modifier.padding(bottom = 8.dp), blurredImageUrl = p.blurredPreviewUrl, label = label) {
+                AsyncImage(
+                    model = preview,
+                    contentDescription = p.title,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(aspect)
+                        .clip(RoundedCornerShape(radius))
+                        .background(cs.surfaceContainerHighest)
+                        .clickable { openMedia(p, nav) },
+                )
+            }
+        }
         val inApp = remember(p.url) { redditLinkLabel(p) }
         OutlinedButton(onClick = { openMedia(p, nav) }, modifier = Modifier.padding(bottom = 12.dp)) {
             Icon(if (inApp != null) Icons.Rounded.Link else Icons.AutoMirrored.Rounded.OpenInNew, null, Modifier.size(18.dp))
@@ -1462,12 +1504,12 @@ private fun CommentTile(
                 .clip(shape)
                 .background(if (highlighted) cs.primaryContainer else cs.surfaceContainerLow)
                 .then(if (highlighted) Modifier.border(1.5.dp, cs.primary, shape) else Modifier)
+                .voteGlow(voteEdge, rtl)
                 // Colored depth edge (only on replies), full height — drawn,
                 // not laid out, so it costs no extra layout pass.
                 .drawBehind {
                     val w = 4.dp.toPx()
                     if (depth > 0) drawRect(edge, Offset(if (rtl) size.width - w else 0f, 0f), Size(w, size.height))
-                    if (voteEdge != null) drawRect(voteEdge, Offset(if (rtl) 0f else size.width - w, 0f), Size(w, size.height))
                 }
                 .padding(start = if (depth > 0) 4.dp else 0.dp),
         ) {
@@ -1568,6 +1610,30 @@ private fun Badge(text: String, bg: Color, fg: Color, size: androidx.compose.ui.
     )
 }
 
+/**
+ * Settings → Mark comments you voted on (#122): the vote's colour glows softly from
+ * the comment's top corner (the end side), fading in and out with the vote. A still
+ * gradient, drawn: nothing to lay out or animate while scrolling.
+ */
+@Composable
+private fun Modifier.voteGlow(color: Color?, rtl: Boolean): Modifier {
+    var last by remember { mutableStateOf(color ?: Color.Transparent) }
+    if (color != null) last = color
+    val shown by animateFloatAsState(if (color != null) 1f else 0f, tween(350), label = "voteGlow")
+    if (shown == 0f) return this
+    return drawBehind {
+        // Gone by the comment's bottom edge, so it never stops in a line against the next one.
+        val radius = minOf(size.height, size.width * 0.9f).coerceAtLeast(1f)
+        drawRect(
+            Brush.radialGradient(
+                listOf(last.copy(alpha = 0.34f * shown), last.copy(alpha = 0.10f * shown), Color.Transparent),
+                center = Offset(if (rtl) 0f else size.width, 0f),
+                radius = radius,
+            ),
+        )
+    }
+}
+
 /** A user's flair in this community, next to their name (#31): its text, with its emoji drawn inline. */
 @Composable
 private fun FlairChip(flair: UserFlair, modifier: Modifier = Modifier) {
@@ -1575,9 +1641,10 @@ private fun FlairChip(flair: UserFlair, modifier: Modifier = Modifier) {
     val (text, emoji) = com.bennybar.luli_for_reddit.feature.feed.rememberFlairText(flair)
     Text(
         text,
-        modifier.widthIn(max = 160.dp).clip(RoundedCornerShape(6.dp)).background(cs.surfaceContainerHighest).padding(horizontal = 6.dp, vertical = 1.dp),
+        // Lightly tinted, as post flairs are (#131).
+        modifier.widthIn(max = 160.dp).clip(RoundedCornerShape(6.dp)).background(cs.secondaryContainer).padding(horizontal = 6.dp, vertical = 1.dp),
         fontSize = 11.sp,
-        color = cs.onSurfaceVariant,
+        color = cs.onSecondaryContainer,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
         inlineContent = emoji,
@@ -1793,11 +1860,8 @@ private fun CalmCommentRow(
                         val color = if (isOp && l == depth - 1) opRail else rail
                         drawRect(color, Offset(if (rtl) size.width - x - w else x, top), Size(w, (bottom - top).coerceAtLeast(0f)))
                     }
-                    if (voteEdge != null) {
-                        val x = 6.dp.toPx() + w
-                        drawRect(voteEdge, Offset(if (rtl) x - w else size.width - x, top), Size(w, (bottom - top).coerceAtLeast(0f)))
-                    }
                 }
+                .voteGlow(voteEdge, rtl)
                 .padding(start = (16 + depth * 10).dp, top = 10.dp, end = 16.dp, bottom = 8.dp),
         ) {
             Row(
@@ -1879,7 +1943,7 @@ private fun CalmCommentRow(
                 val upFill by animateColorAsState(if (up) votes.up else Color.Transparent, MaterialTheme.motionScheme.fastEffectsSpec())
                 val downFill by animateColorAsState(if (down) votes.down else Color.Transparent, MaterialTheme.motionScheme.fastEffectsSpec())
                 Box(Modifier.size(32.dp).clip(CircleShape).background(upFill).clickable { actions.vote(comment, 1) }, contentAlignment = Alignment.Center) {
-                    Icon(Icons.Rounded.ArrowUpward, "Upvote", Modifier.size(16.dp).popOn(up), tint = if (up) onVoteColor(votes.up) else muted)
+                    Icon(Icons.Rounded.ArrowUpward, "Upvote", Modifier.size(16.dp), tint = if (up) onVoteColor(votes.up) else muted)
                 }
                 Text(
                     if (comment.scoreHidden) "–" else compactNumber(comment.score),
@@ -1888,7 +1952,7 @@ private fun CalmCommentRow(
                     color = if (up) votes.up else if (down) votes.down else muted,
                 )
                 Box(Modifier.size(32.dp).clip(CircleShape).background(downFill).clickable { actions.vote(comment, -1) }, contentAlignment = Alignment.Center) {
-                    Icon(Icons.Rounded.ArrowDownward, "Downvote", Modifier.size(16.dp).popOn(down), tint = if (down) onVoteColor(votes.down) else muted)
+                    Icon(Icons.Rounded.ArrowDownward, "Downvote", Modifier.size(16.dp), tint = if (down) onVoteColor(votes.down) else muted)
                 }
                 Spacer(Modifier.width(6.dp))
                 Row(
@@ -2036,12 +2100,16 @@ private fun CommentMedia(body: String, extra: List<android.net.Uri>, nav: AppNav
     }
 }
 
-/** Small colored avatar with the author's initial (color derived from name). */
+/**
+ * Small colored avatar with the author's initial (color derived from name), or their
+ * profile picture once it's known (#133), drawn over it.
+ */
 @Composable
 private fun AuthorDot(name: String, size: Int) {
     val clean = name.removePrefix("u/")
     val deleted = clean.isEmpty() || clean.startsWith("[")
     val color = if (deleted) MaterialTheme.colorScheme.outline else avatarColor(clean)
+    val icon = if (deleted) null else LocalAuthorIcons.current[clean.lowercase()]
     Box(Modifier.size(size.dp).clip(CircleShape).background(color), contentAlignment = Alignment.Center) {
         Text(
             if (deleted) "?" else clean.first().uppercase(),
@@ -2050,6 +2118,15 @@ private fun AuthorDot(name: String, size: Int) {
             fontSize = (size * 0.5f).sp,
             lineHeight = (size * 0.5f).sp,
         )
+        if (icon != null) {
+            val px = with(LocalDensity.current) { size.dp.roundToPx() }
+            AsyncImage(
+                model = com.bennybar.luli_for_reddit.feature.feed.rememberSizedRequest(icon, px),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
     }
 }
 
