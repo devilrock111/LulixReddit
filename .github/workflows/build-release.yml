@@ -14,6 +14,8 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - name: Set up Gradle (cache Gradle distribution + dependencies)
+        uses: gradle/actions/setup-gradle@v4
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
         with:
@@ -57,11 +59,47 @@ jobs:
           ls -la app/ || echo "NO app/ dir!"
           echo "--- gradlew ---"
           ls -l gradlew
+      - name: Prepare Gradle wrapper (longer download timeout + retry)
+        run: |
+          set -euo pipefail
+          # The Gradle wrapper defaults to a 10s download timeout and
+          # services.gradle.org is often slow from runners, so downloads of
+          # Gradle 9.6.0 time out before the build even starts. Raise it to 60s.
+          if ! grep -q '^networkTimeout=' gradle/wrapper/gradle-wrapper.properties; then
+            echo 'networkTimeout=60000' >> gradle/wrapper/gradle-wrapper.properties
+          fi
+          grep '^networkTimeout=' gradle/wrapper/gradle-wrapper.properties || true
+          chmod +x gradlew
+          # First gradlew call downloads the Gradle distribution; retry it
+          # a few times in case the download still flakes.
+          for i in 1 2 3; do
+            if ./gradlew --version; then
+              echo "Gradle wrapper ready on attempt $i"
+              break
+            fi
+            echo "gradlew --version attempt $i failed, retrying in 10s..."
+            sleep 10
+            if [ "$i" = 3 ]; then
+              echo "::error::Gradle wrapper download failed after 3 attempts"
+              exit 1
+            fi
+          done
       - name: Build release APK
         run: |
+          set -euo pipefail
           chmod +x gradlew
-          ./gradlew :app:assembleRelease --stacktrace
-          echo "gradle exit code: $?"
+          for i in 1 2 3; do
+            if ./gradlew :app:assembleRelease --stacktrace; then
+              echo "Build succeeded on attempt $i"
+              break
+            fi
+            echo "assembleRelease attempt $i failed, retrying in 15s..."
+            sleep 15
+            if [ "$i" = 3 ]; then
+              echo "::error::assembleRelease failed after 3 attempts"
+              exit 1
+            fi
+          done
           ls -la app/build/ || echo "NO app/build dir after gradle!"
       - name: List APK outputs
         if: always()
