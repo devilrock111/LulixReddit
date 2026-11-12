@@ -45,6 +45,59 @@ class Release(val version: String, val date: String, val highlights: List<String
  */
 val CHANGELOG = listOf(
     Release(
+        "2.0.76", "Nov 11, 2026",
+        listOf(
+            "Drafts gets the new look: a top bar that hides as you scroll and rounded containers",
+            "Selecting in History flips the picture over to a tick",
+            "Softer placeholder pictures, and people's profile pictures in search",
+            "The side bar shows your name and karma beside your picture, with an option to hide the u/",
+            "The full top bar keeps the ☰ and your picture outside the search bar; calm posts show round community pictures",
+        ),
+    ),
+    Release(
+        "2.0.75", "Nov 11, 2026",
+        listOf(
+            "Explore: Recommended for you, communities you enjoy in For You but haven't joined, with a Join button",
+            "History is split by day: Today, Yesterday, then the date",
+            "Swiping from the edge on Inbox and Profile drags the side bar out with your finger",
+        ),
+    ),
+    Release(
+        "2.0.74", "Nov 11, 2026",
+        listOf(
+            "Settings › Media › Loop videos: turn it off and full-screen videos stop at the end, with a replay button (GIFs still loop)",
+        ),
+    ),
+    Release(
+        "2.0.73", "Nov 11, 2026",
+        listOf(
+            "History shows each community's picture; tap the name to open the community",
+            "History: tap a picture to select posts, then remove them together",
+            "Removing from History offers Undo",
+            "Profile: its ⋯ menu puts short entries side by side, and its header lines up with Home's",
+        ),
+    ),
+    Release(
+        "2.0.72", "Nov 11, 2026",
+        listOf(
+            "A subreddit or custom feed you open again after a few minutes loads its latest posts, no pull needed",
+            "Inbox reloads when you open it and when new mail arrives, and new items show at the top",
+        ),
+    ),
+    Release(
+        "2.0.71", "Nov 11, 2026",
+        listOf(
+            "Read posts stay read: Hide read posts remembers far more of them, covers For You too, and a page of only read posts loads the next",
+            "Saved and History: the top bar hides as you scroll, with a 🔍 to bring the search back; Saved's chips have room and float under the bar",
+            "History looks like Gmail: one connected list with each community's letter and when you read it; swipe a row left to remove it",
+            "Search: Recent in connected cards; a community or user you open from the results takes its search's place, with its picture; long-press one to remove it",
+            "Profile: tap your name (▾) to switch accounts, now with their pictures; History, Read later, Drafts and more are in the ⋯ menu",
+            "Full top bar without New post: one round bar, Search Reddit in the middle, a smaller picture",
+            "With the side bar on, Inbox and Explore leave out the Settings button too",
+            "The search tab you pick before searching shows as picked",
+        ),
+    ),
+    Release(
         "2.0.70", "Nov 10, 2026",
         listOf(
             "The side bar slides fully closed before the next page opens",

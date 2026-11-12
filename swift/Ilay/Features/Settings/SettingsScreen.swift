@@ -179,7 +179,7 @@ struct SettingsCatalog {
             "Keep feed for", "Home / For You, then a new feed (pull down to refresh anytime)", value: s.feedKeepMinutes,
             options: [10, 30, 60, 180].map { PickOption(value: $0, label: keepLabel($0)) }, set: ctrl.setFeedKeepMinutes
         )
-        b.toggle("Hide read posts", "Skip posts you've already read when your front page and custom feeds load or refresh", s.hideReadPosts, set: ctrl.setHideReadPosts)
+        b.toggle("Hide read posts", "Skip posts you've already read when your front page, For You and custom feeds load or refresh", s.hideReadPosts, set: ctrl.setHideReadPosts)
         if s.hideReadPosts {
             b.toggle("Also in subreddits", "Hide read posts when browsing a single subreddit too", s.hideReadInSubreddits, set: ctrl.setHideReadInSubreddits)
         }
@@ -222,6 +222,7 @@ struct SettingsCatalog {
             "Navigation", value: min(max(s.navStyle, 0), 2),
             options: navStyles.indices.map { PickOption(value: $0, label: navStyles[$0].0, subtitle: navStyles[$0].1) }, set: ctrl.setNavStyle
         )
+        b.toggle("u/ before your name in the side bar", "Show \"u/you\" at the top of the side bar. Off: just \"you\"", s.sideBarUserPrefix, set: ctrl.setSideBarUserPrefix)
     }
 
     // MARK: - Posts & comments
@@ -284,6 +285,7 @@ struct SettingsCatalog {
             b.toggle("Autoplay with sound", "Feed videos start with sound; tap the speaker to mute one", s.autoplaySound, set: ctrl.setAutoplaySound)
         }
         b.toggle("Open videos muted", "Full-screen videos start muted; tap the speaker for sound", s.viewerMuted, set: ctrl.setViewerMuted)
+        b.toggle("Loop videos", "Full-screen videos start over at the end. Off: they stop, with a replay button. GIFs always loop", s.loopVideos, set: ctrl.setLoopVideos)
         b.toggle("Gallery carousel in feeds", "Galleries show a big image with the next ones beside it. Off: one image at a time", s.feedGalleryCarousel, set: ctrl.setFeedGalleryCarousel)
         b.toggle("Blur NSFW media", "Tap to reveal blurred images", s.blurNsfw, set: ctrl.setBlurNsfw)
         // Content filters' switch, here too: beside the blur is where people look for it (#94).

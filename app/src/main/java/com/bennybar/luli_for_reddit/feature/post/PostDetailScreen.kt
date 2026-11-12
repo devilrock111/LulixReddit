@@ -199,7 +199,7 @@ import com.bennybar.luli_for_reddit.feature.feed.CalmGhost
 import com.bennybar.luli_for_reddit.feature.feed.CalmPill
 import com.bennybar.luli_for_reddit.feature.feed.CalmVoteGroup
 import com.bennybar.luli_for_reddit.feature.feed.LetterAvatar
-import com.bennybar.luli_for_reddit.feature.feed.avatarColor
+import com.bennybar.luli_for_reddit.feature.feed.avatarTones
 import com.bennybar.luli_for_reddit.model.Subreddit
 import com.bennybar.luli_for_reddit.settings.PostDisplay
 import com.bennybar.luli_for_reddit.settings.Settings
@@ -1317,7 +1317,7 @@ private fun openMedia(p: Post, nav: AppNavigator) {
     when (p.type) {
         PostType.IMAGE -> nav.openImage(p.previewUrl ?: p.url, p.title)
         PostType.GIF -> if (p.gifMp4Url != null) {
-            nav.openVideo(p.gifMp4Url, p.title, downloadUrl = p.gifMp4Url, externalUrl = p.url)
+            nav.openVideo(p.gifMp4Url, p.title, downloadUrl = p.gifMp4Url, externalUrl = p.url, gif = true)
         } else {
             nav.openImage(p.url, p.title)
         }
@@ -2129,12 +2129,13 @@ private fun CommentMedia(body: String, extra: List<android.net.Uri>, nav: AppNav
 private fun AuthorDot(name: String, size: Int) {
     val clean = name.removePrefix("u/")
     val deleted = clean.isEmpty() || clean.startsWith("[")
-    val color = if (deleted) MaterialTheme.colorScheme.outline else avatarColor(clean)
+    // Soft tones like the other placeholders (#168).
+    val (tone, onTone) = avatarTones(clean)
     val icon = if (deleted) null else LocalAuthorIcons.current[clean.lowercase()]
-    Box(Modifier.size(size.dp).clip(CircleShape).background(color), contentAlignment = Alignment.Center) {
+    Box(Modifier.size(size.dp).clip(CircleShape).background(if (deleted) MaterialTheme.colorScheme.outline else tone), contentAlignment = Alignment.Center) {
         Text(
             if (deleted) "?" else clean.first().uppercase(),
-            color = Color.White,
+            color = if (deleted) Color.White else onTone,
             fontWeight = FontWeight.Bold,
             fontSize = (size * 0.5f).sp,
             lineHeight = (size * 0.5f).sp,

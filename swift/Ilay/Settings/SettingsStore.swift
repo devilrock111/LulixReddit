@@ -41,6 +41,7 @@ final class SettingsStore {
         s.dimReadTextOnly = b("dimReadTextOnly", s.dimReadTextOnly)
         s.dimRead = b("dimRead", s.dimRead)
         s.subredditIcons = b("subredditIcons", s.subredditIcons)
+        s.sideBarUserPrefix = b("sideBarUserPrefix", s.sideBarUserPrefix)
         s.markReadOnScroll = b("markReadOnScroll", s.markReadOnScroll)
         s.swipePostStart = SwipeAction.parse(p.getString("swipePostStart"), .upvote)
         s.swipePostEnd = SwipeAction.parse(p.getString("swipePostEnd"), .downvote)
@@ -87,6 +88,7 @@ final class SettingsStore {
         s.autoplayMedia = b("autoplayMedia", s.autoplayMedia)
         s.autoplaySound = b("autoplaySound", s.autoplaySound)
         s.viewerMuted = b("viewerMuted", s.viewerMuted)
+        s.loopVideos = b("loopVideos", s.loopVideos)
         s.feedGalleryCarousel = b("feedGalleryCarousel", s.feedGalleryCarousel)
         s.showApiUsage = b("showApiUsage", s.showApiUsage)
         s.notifyInbox = b("notifyInbox", s.notifyInbox)
@@ -199,6 +201,7 @@ final class SettingsStore {
         }
     }
     func setSubredditIcons(_ v: Bool) { p.setBool("subredditIcons", v); set { $0.subredditIcons = v } }
+    func setSideBarUserPrefix(_ v: Bool) { p.setBool("sideBarUserPrefix", v); set { $0.sideBarUserPrefix = v } }
     func setMarkReadOnScroll(_ v: Bool) { p.setBool("markReadOnScroll", v); set { $0.markReadOnScroll = v } }
 
     /// [key] is one of swipePostStart / swipePostEnd / swipeCommentStart / swipeCommentEnd.
@@ -242,6 +245,7 @@ final class SettingsStore {
     func setAutoplayMedia(_ v: Bool) { p.setBool("autoplayMedia", v); set { $0.autoplayMedia = v } }
     func setAutoplaySound(_ v: Bool) { p.setBool("autoplaySound", v); set { $0.autoplaySound = v } }
     func setViewerMuted(_ v: Bool) { p.setBool("viewerMuted", v); set { $0.viewerMuted = v } }
+    func setLoopVideos(_ v: Bool) { p.setBool("loopVideos", v); set { $0.loopVideos = v } }
     func setFeedGalleryCarousel(_ v: Bool) { p.setBool("feedGalleryCarousel", v); set { $0.feedGalleryCarousel = v } }
     func setShowApiUsage(_ v: Bool) { p.setBool("showApiUsage", v); set { $0.showApiUsage = v } }
     func setNotifyInbox(_ v: Bool) { p.setBool("notifyInbox", v); set { $0.notifyInbox = v } }

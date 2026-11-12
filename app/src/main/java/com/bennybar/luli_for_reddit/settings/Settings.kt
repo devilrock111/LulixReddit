@@ -208,6 +208,7 @@ data class Settings(
     val dimRead: Boolean = true, // read posts dim at all (#106); off: history is still kept, nothing fades
     val subredditIcons: Boolean = true, // cards show the subreddit's icon (else its first letter)
     val subredditPrefix: Boolean = true, // subreddit names show as "r/name" (else just "name", #97); display only
+    val sideBarUserPrefix: Boolean = true, // the side bar shows your name as "u/name" (else just "name", #167)
     val markReadOnScroll: Boolean = false, // a post scrolled past counts as read
     // What swiping does: "start" = from the start edge (rightward in LTR).
     val swipePostStart: SwipeAction = SwipeAction.UPVOTE,
@@ -253,6 +254,7 @@ data class Settings(
     val autoplayMedia: Boolean = true, // autoplay videos/GIFs in feeds
     val autoplaySound: Boolean = false, // feed videos start unmuted (#23)
     val viewerMuted: Boolean = false, // full-screen videos start muted (#51)
+    val loopVideos: Boolean = true, // full-screen and Browse media videos start over at the end; off: they stop, with a replay button (#156). GIFs always loop
     val feedGalleryCarousel: Boolean = true, // galleries in feeds as the M3 carousel (else one image at a time)
     val showApiUsage: Boolean = false, // show API usage instead of search on Posts screen
     val notifyInbox: Boolean = false, // background-poll the inbox + local notifications

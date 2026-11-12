@@ -290,6 +290,69 @@ final class FlutterPrefsCompatTests: XCTestCase {
         XCTAssertEqual(muted.value, ["pics", "news"])
     }
 
+    // #148: History shows the newest 500, but posts read longer ago still count as
+    // read, across restarts; removing or clearing forgets them too.
+    @MainActor
+    func testReadIdsOutliveTheHistoryCap() {
+        let p = Prefs(defaults: defaults)
+        p.setStringList("history_bob", [#"{"id":"old","sub":"pics","title":"T","permalink":"/p","ts":1}"#])
+        let h = HistoryStore(prefs: p)
+        h.onUserChanged("bob")
+        XCTAssertTrue(h.contains("old"), "seeded from history")
+        for i in 0..<700 { h.markViewed(post("p\(i)", title: "T")) }
+        XCTAssertEqual(h.state.count, 500)
+        XCTAssertTrue(h.contains("p0") && h.contains("old"))
+        XCTAssertTrue(p.getString("readIds_bob")!.hasPrefix("p699:"), "same format as Android")
+        let again = HistoryStore(prefs: p)
+        again.onUserChanged("bob")
+        XCTAssertTrue(again.contains("p0") && again.contains("p699"))
+        again.removeViewed("p0")
+        XCTAssertFalse(again.contains("p0"))
+        again.clearOlderThan(60_000)
+        XCTAssertFalse(again.contains("old"), "legacy entries count as old")
+        XCTAssertTrue(again.contains("p1"))
+        again.clear()
+        XCTAssertFalse(again.contains("p1"))
+    }
+
+    // #154: Undo puts a removed entry back where it was, read again.
+    @MainActor
+    func testRestorePutsAHistoryEntryBackInPlace() {
+        let h = HistoryStore(prefs: Prefs(defaults: defaults))
+        h.onUserChanged("bob")
+        for id in ["a", "b", "c"] { h.markViewed(post(id, title: "T")); usleep(2000) }
+        let b = h.state.first { $0.id == "b" }!
+        h.removeViewed("b")
+        XCTAssertFalse(h.contains("b"))
+        h.restore(b)
+        h.restore(b)
+        XCTAssertEqual(h.state.map(\.id), ["c", "b", "a"])
+        XCTAssertTrue(h.contains("b"))
+    }
+
+    // #159: History's day headers and grouping.
+    func testHistoryDayLabelsAndGroups() {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "UTC")!
+        let now = cal.date(from: DateComponents(year: 2026, month: 11, day: 11, hour: 15))!
+        func day(_ back: Int) -> Date { cal.startOfDay(for: cal.date(byAdding: .day, value: -back, to: now)!) }
+        let us = Locale(identifier: "en_US")
+        XCTAssertEqual(historyDayLabel(day(0), now: now, calendar: cal, locale: us), "Today")
+        XCTAssertEqual(historyDayLabel(day(1), now: now, calendar: cal, locale: us), "Yesterday")
+        XCTAssertEqual(historyDayLabel(day(2), now: now, calendar: cal, locale: us), "Monday")
+        XCTAssertEqual(historyDayLabel(day(7), now: now, calendar: cal, locale: us), "Wed, Nov 4")
+        XCTAssertEqual(historyDayLabel(cal.date(from: DateComponents(year: 2025, month: 12, day: 31))!, now: now, calendar: cal, locale: us), "Dec 31, 2025")
+        XCTAssertEqual(historyDayLabel(nil, now: now, calendar: cal, locale: us), "Earlier")
+        let ms = { (d: Date) in Int(d.timeIntervalSince1970 * 1000) + 3_600_000 }
+        let entries = [
+            HistoryEntry(id: "a", subreddit: "s", title: "", permalink: "", viewedAt: ms(day(0))),
+            HistoryEntry(id: "b", subreddit: "s", title: "", permalink: "", viewedAt: ms(day(0))),
+            HistoryEntry(id: "c", subreddit: "s", title: "", permalink: "", viewedAt: ms(day(3))),
+            HistoryEntry(id: "d", subreddit: "s", title: "", permalink: "", viewedAt: 0),
+        ]
+        XCTAssertEqual(historyDays(entries, calendar: cal).map { $0.entries.map(\.id) }, [["a", "b"], ["c"], ["d"]])
+    }
+
     @MainActor
     func testStoresWriteFlutterFormats() {
         let p = Prefs(defaults: defaults)
