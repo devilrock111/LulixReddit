@@ -45,6 +45,38 @@ class Release(val version: String, val date: String, val highlights: List<String
  */
 val CHANGELOG = listOf(
     Release(
+        "2.0.80", "Nov 12, 2026",
+        listOf(
+            "Explore: Popular communities, a row of Reddit's popular communities you haven't joined, with Join",
+            "It's loaded at most once a day, and you can hide or move it in Settings › Appearance › Explore sections",
+        ),
+    ),
+    Release(
+        "2.0.79", "Nov 12, 2026",
+        listOf(
+            "Explore redesign: each section sits in its own rounded card",
+            "Recommended communities show their banner, with the picture over it",
+            "Favorites is a row of community pictures; long press one to remove it",
+            "Recently visited shows the first three, with Show all for the rest",
+            "Explore's top bar follows Settings › Appearance › Top bar, like Home, and hides as you scroll",
+        ),
+    ),
+    Release(
+        "2.0.78", "Nov 12, 2026",
+        listOf(
+            "Settings › Appearance › Explore sections: show, hide and reorder Explore's sections",
+            "Recommended for you is a carousel of up to 10 communities, each with its picture and a Join button",
+        ),
+    ),
+    Release(
+        "2.0.77", "Nov 12, 2026",
+        listOf(
+            "Spoiler and NSFW galleries cover each image, so you can still swipe through them; one tap reveals them all",
+            "Spoiler covers have the same rounded corners as the media under them",
+            "Calm comment threads: the lines run unbroken, each depth in its own soft colour, with rounded ends",
+        ),
+    ),
+    Release(
         "2.0.76", "Nov 11, 2026",
         listOf(
             "Drafts gets the new look: a top bar that hides as you scroll and rounded containers",
